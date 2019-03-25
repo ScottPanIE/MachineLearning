@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>Famous People Black Version</title>
+        <meta charset="utf-8">
+        <style>
+
+        title {
+          font-size: 40px;
+          font-family: 'Bubbler One';
+        }
+
+        h1{
+            color: Fuchsia;
+        }
+
+        #bigtitle {
+          font-size: 80px;
+          font-family: "Gill Sans", sans-serif;
+          color: Fuchsia;
+          text-align: center;
+          }
+
+        #label {
+          font-size: 16px;
+          font-family: "Gill Sans", sans-serif;
+          }
+
+        body {
+          font-size: 20px;
+          font-family: "Gill Sans", sans-serif;
+          background-color: #000000;
+        }
+
+
+        .axis line {
+          stroke: DimGray;
+          shape-rendering: crispEdges;
+        }
+
+
+        .axis text {
+           font-size: 18px;
+           fill: DimGray;
+        }
+
+        .axis path {
+          display: none;
+        }
+
+        .line {
+          fill: none;
+          stroke: white;
+          stroke-width: 2px;
+        }
+
+        .focus {
+          text-decoration: underline;
+        }
+
+        </style>
+    </head>
+    <body>
+
+        <div class="originalweb" style="margin-left:10%;margin-right:auto;">
+          <h1 style="fill:Salmon;">Famous People HPI in Different Domains</h1>
+        </div>
+
+        <div class='buttonholder' style="height:80px; width:80%;background-color:black;margin-left:auto;margin-right:auto">
+            <p id="label" style="color: Fuchsia;position: absolute; margin-left: auto; margin-top: 0px;">The Hogan Personality Inventory (HPI) is a versatile tool which focusses on normal or ‘bright side’ personality traits – qualities that describe</p>
+            <p id="label" style="color: Fuchsia;position: absolute; margin-left: auto; margin-top: 16px;">how we relate to others when we are at our best. Providing in-depth insight into how people work and lead, the HPI is linked to on-the-job </p>
+            <p id="label" style="color: Fuchsia;position: absolute; margin-left: auto; margin-top: 32px;">performance and can be used for selection and hiring and personal and leadership development.<a href="https://waitbutwhy.com/2016/01/horizontal-history.html">Original Website</a></p>
+
+            <select id="inds1" class="filter" style="position:absolute;margin-left: 1%;margin-top: 80px;opacity: 0.8;">
+                    <option value="ARTS" selected="selected">ARTS</option>
+                    <option value="SPORTS">SPORTS</option>
+                    <option value="HUMANITIES">HUMANITIES</option>
+                    <option value="BuzAndLaw">BUSINESS & LAW</option>
+                    <option value="INSTITUTIONS">INSTITUTIONS</option>
+                    <option value="ScienceAndTech">SCIENCE & TECHNOLOGY</option>
+                    <option value="PublicFigure">PUBLIC FIGURE</option>
+                    <option value="EXPLORATION">EXPLORATION</option>
+            </select>
+
+            <select id="inds2" class="filter" style="position:absolute;margin-left: 15%;margin-top: 80px;opacity: 0.8;">
+                <option value="ScienceAndTech" selected="selected">SCIENCE & TECHNOLOGY</option>
+                <option value="SPORTS">SPORTS</option>
+                <option value="HUMANITIES">HUMANITIES</option>
+                <option value="BuzAndLaw">BUSINESS & LAW</option>
+                <option value="INSTITUTIONS">INSTITUTIONS</option>
+                <option value="ARTS">ARTS</option>
+                <option value="PublicFigure">PUBLIC FIGURE</option>
+                <option value="EXPLORATION">EXPLORATION</option>
+            </select>
+
+            <!-- Create the starting butto -->
+            <button id="start" style="position: absolute; height:20px;width:60px;margin-left: 30%; margin-top: 80px; opacity: 0.8;">Start</button>
+            <!-- Create the erase overall butto -->
+            <button id="overall" style="position: absolute; height:20px;width:60px;margin-left: 35%; margin-top: 80px; opacity: 0.8;">Overall</button>
+            <!-- Create the reset button -->
+            <button id="reset" style="position: absolute; height:20px;width:60px;margin-left: 40%; margin-top: 80px; opacity: 0.8;">Reset</button>
+            <!-- Create a paragraph with a general discription -->
+            <!-- Google Fonts Reference -->
+        </div>
+
+
+
+        <link href="https://fonts.googleapis.com/css?family=Bubbler One" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+        <script>
+
+            //Defining the margin conventions and width and height
+            var margin = {top: 120, right: 20, bottom: 120, left: 150},
+                width = 1200 - margin.left - margin.right,
+                height = 700 - margin.top - margin.bottom;
+
+            // Defining the format for the time variable
+            var parseDate = d3.time.format("%Y").parse;
+
+            var x = d3.time.scale()
+                      .range([0, width]);
+
+            var y = d3.scale.linear()
+                      .range([height, 0]);
+
+            var xAxis = d3.svg.axis()
+                .scale(x)
+                .orient("bottom")
+            	.ticks(8);
+
+            var line = d3.svg.line()
+                .x(function(d) { return x(d.Birthyear); })
+                .y(function(d) { return y(d.Mean_HPI); });
+
+            var svg = d3.select("body")
+            			.append("svg")
+                        .attr("width", width + margin.left + margin.right)
+                        .attr("height", height + margin.top + margin.bottom)
+                        .append("g")
+                        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            var g = svg.append("g")
+                .attr('id', 'main')
+            	.attr("transform", "translate(50, 0)")
+                .style("position", "relative");
+
+            var color_dict = {
+                "SPORTS": "#e41a1c",
+                "ARTS": "#377eb8",
+                "BUSINESS & LAW": "#4daf4a",
+                "HUMANITIES": "#984ea3",
+                "INSTITUTIONS": "#ff7f00",
+                "SCIENCE & TECHNOLOGY": "#ffdd32",
+                "PUBLIC FIGURE": "#a65628",
+                "EXPLORATION": "#f781bf",
+                "(all)":"gray",
+            };
+
+            var catname_dict = {
+                "SPORTS": "SPORTS",
+                "ARTS": "ARTS",
+                "BuzAndLaw": "BUSINESS & LAW",
+                "HUMANITIES": "HUMANITIES",
+                "INSTITUTIONS": "INSTITUTIONS",
+                "ScienceAndTech":"SCIENCE & TECHNOLOGY",
+                "PublicFigure":"PUBLIC FIGURE",
+                "EXPLORATION": "EXPLORATION",
+                "Overall":"(all)",
+            };
+            //create a function to draw a line
+            function drawaline(data,category){
+
+                console.log(category)
+                var datacat = data.filter(function(d){return d.Domain == category;});
+
+                var pathcat = svg.append("path")
+                              .datum(datacat) // data binding
+                              .attr("class", "line")
+                              .attr("id","cat")
+                              .attr("d", line)
+                              .style("opacity",0.3)
+                              .style("stroke", color_dict[category]);
+
+                var totalLength = pathcat.node().getTotalLength();
+
+                pathcat
+                  .attr("stroke-dasharray", totalLength + " " + totalLength)
+                  .attr("stroke-dashoffset", totalLength)
+                  .transition()
+                  .duration(15000)
+                  .ease("linear")
+                  .style("stroke-width",1.5)
+                  .attr("stroke-dashoffset", 0);
+
+                  svg.selectAll(".cat").data(datacat).enter()
+                      .append("circle")
+                       .attr("cx", function(d) { return x(d.Birthyear); })
+                       .attr("cy", function(d) { return y(d.Mean_HPI); })
+                       .attr("r", 8)
+                       .style("fill", "black")
+                       .style("opacity", 0)
+
+                        .on("mouseover", function(d) {
+                                d3.select(this)
+                                    .attr("r",5)
+                                    .style("fill", color_dict[category])
+                                    .style("opacity", 0.5)
+
+                                svg.selectAll("#tooltip").data([d]).enter()
+                                   .append("text")
+                                   .text(function(d){return 'Year:' + d3.time.format("%Y")(d.Birthyear) +' Mean HPI: '+ d3.format(".1f")(d.Mean_HPI);})
+                                   .attr("id","tooltip")
+                                   .attr("x",function(d){return x(d.Birthyear);})
+                                   .attr("y",function(d){return y(d.Mean_HPI);})
+                                   .style("fill",color_dict[category])
+                            })
+
+                         .on("mouseout", function(d){
+                             d3.select(this)
+                                .style("fill","black")
+                                .style("opacity", 0)
+                             svg.selectAll("#tooltip").data(datacat).remove()
+                         });
+            }
+            // end of the function drawaline
+            //////// background overall line path
+            function bgpath(data){
+                var dataall = data.filter(function(d){return d.Domain == '(all)';});
+                var pathall = svg.append("path")
+                              .datum(dataall) // data binding
+                              .attr("class", "line")
+                              .attr("d", line)
+                              .attr("id", "all")
+                              .style("stroke", 'white')
+                              .style("stroke-width",3)
+                              .style("opacity",0.3);
+
+                pathall
+                  .transition()
+                  .style("stroke",'grey')
+                  .duration(6000)
+
+                  svg.selectAll(".all").data(dataall).enter()
+                      .append("circle")
+                       .attr("cx", function(d) { return x(d.Birthyear); })
+                       .attr("cy", function(d) { return y(d.Mean_HPI); })
+                       .attr("r", 8)
+                       .style("fill", "black")
+                       .style("opacity", 0)
+
+                        .on("mouseover", function(d) {
+                                d3.select(this)
+                                    .attr("r",5)
+                                    .style("fill", "grey")
+                                    .style("opacity", 0.5)
+
+
+                                svg.selectAll("#tooltip").data([d]).enter()
+                                   .append("text")
+                                   .text(function(d){return 'Year:' + d3.time.format("%Y")(d.Birthyear) +' Mean HPI: '+ d3.format(".1f")(d.Mean_HPI);})
+                                   .attr("id","tooltip")
+                                   .attr("x",function(d){return x(d.Birthyear);})
+                                   .attr("y",function(d){return y(d.Mean_HPI);})
+                                   .style("fill",'grey')
+                            })
+
+                         .on("mouseout", function(d){
+                             d3.select(this)
+                                .style("fill","black")
+                                .style("opacity", 0)
+                             svg.selectAll("#tooltip").data(dataall).remove()
+                         });
+            };
+
+// data loading
+            d3.csv("https://gist.githubusercontent.com/Sohamjit/1ec47e0b84774cd6b115b6193f9f2051/raw/2a176bd0b96425ab1349554d896aacc005102b3f/FamousPeople.csv", function(error, data) {
+              if (error) throw error;
+              console.log(data);
+
+              data.forEach(function(d) {
+                d.Birthyear = parseDate(d.Birthyear);
+                d.Mean_HPI = + d.Mean_HPI;
+              });
+
+
+              x.domain(d3.extent(data, function(d) { return d.Birthyear; }));
+              y.domain([10, d3.max(data, function(d) { return d.Mean_HPI; })]);
+              svg.append("g")
+                 .attr("class", "x axis")
+                 .attr("transform", "translate(0," + height + ")")
+                 .call(xAxis);
+
+              svg.append("text")
+                 .attr("transform", "rotate(-90)")
+                 .attr("y", -15)
+                 .attr("x", 0)
+                 .attr("dy", ".0em")
+                 .style("text-anchor", "end")
+                 .style("fill", 'DimGray')
+                 .text("Famous People median HPI (score)");
+
+            bgpath(data)
+// default cats
+            var catName1 = 'ARTS';
+            var catName2 = 'SCIENCE & TECHNOLOGY';
+
+            d3.selectAll('.filter')
+        			.on("change", function () {
+        				var sect1 = document.getElementById("inds1");
+                        var sect2 = document.getElementById("inds2");
+        				var catCode1 = sect1.options[sect1.selectedIndex].value;
+                        var catCode2 = sect2.options[sect2.selectedIndex].value;
+                        catName1 = catname_dict[catCode1];
+                        catName2 = catname_dict[catCode2];
+                    })
+                   .on("click", function(){
+                       d3.select("#inds1")
+                         .style("color",'black');
+                       d3.select("#inds2")
+                         .style("color",'black');
+                   })
+                   ;
+
+                d3.select("#start")
+                  .on("click", function() {
+                      // remove the old graphs
+                      d3.selectAll("#cat").remove();
+                      d3.selectAll("#inds1")
+                        .attr('style','position:absolute;margin-left: 1%;margin-top: 80px;opacity: 0.8;color:'+color_dict[catName1]);
+                        // .attr('style','color:'+color_dict[catName1]);
+                        // .style("color",color_dict[catName1]);
+                        // console.log(d3.selectAll("#inds1"));
+                        console.log('1');
+                        console.log(color_dict[catName1]);
+                      d3.selectAll("#inds2")
+                        .attr('style','position:absolute;margin-left: 15%;margin-top: 80px;opacity: 0.8;color:'+color_dict[catName2]);
+                        console.log(color_dict[catName2])
+                      drawaline(data,catName1);
+                      drawaline(data,catName2);
+                });
+
+             d3.select("#reset")
+               .on("click", function(){d3.selectAll("#cat").remove();
+               });
+             d3.select("#overall")
+               .on("click", function(){
+                   var active   = all.active ? false : true ,
+            	      newOpacity = active ? 0 : 0.3;
+            		// Hide or show the elements
+            		d3.selectAll("#all").style("opacity", newOpacity);
+            		// Update whether or not the elements are active
+            		all.active = active;
+               });
+            });
+        </script>
+    </body>
+</html>

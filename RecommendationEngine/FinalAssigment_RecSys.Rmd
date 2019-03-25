@@ -1,0 +1,231 @@
+---
+title: "Recommendation System of Games in Steam"
+author: "Jiachao Pan"
+date: "3/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Business Case
+
+With the improvement of the technology and the change of the society, games become more important and closer to people's life than they've ever been. Some of the games even have their own offline competition and chamipionship. With tons of Live platforms such as Youtube and Twitch, making living by playing video games is no longer a dream. Certainly, game has merged into the blood of the young peoples. As a gamer, I used to play a lot of games. Most of the games were introduced by my friends and the social medias. If you are a steam player, you must have noticed that in the recent years, steam has built up their recommendation system. It appears in the home page with the tab called "For You". However, at this moment, let's assume this buisness case is for some gaming platform which does not have a recommendation system. Everything I am going to demonstrate is not copied from Steam(because I haven't been using Steam for a year). I will demonstrate the way I prepared my dataset, the way I approached to my algorithm, the application of the recommendation system in the real world, and the feedback loop of this system.
+
+## Preprocess Data
+The dataset I choose is the games from Steam. It contains the information of how many hours has the users played on each game.
+
+Since the dataset doesn't contain the ratings of each game, I am going to define the users' preferences on the games by how many hours they have spent in the game. To make it more logical, we assume all the users created account at the same time. Otherwise, the hours is not a strong representative of the users preference.
+
+```{r include=FALSE}
+library(recommenderlab)
+library(data.table)
+# load data and convert to datatable
+games <- read.csv('steam-200k.csv',sep=',',header = FALSE)
+games <- as.data.table(games)
+# rename the columns and drop the column V5 since it doesn't contain any information I need
+names(games)=c('userId','gameNames','purchase_type','hours_spent','V5')
+games$V5 <- NULL
+# select the rows that describe how many hours has the users played on each game, and drop the unnecessary column
+games <- games[purchase_type=='play',]
+games$purchase_type <- NULL
+games2 <- games
+
+
+# define how much the users like the games based on the hours they spend on the games
+
+# assume all the users created account at the same time, otherwise, we can't use the hours to identify
+# how much they like the game, in the scale of 0-5
+#  0-1, 0
+#  1-4, 1
+#  4-16,2
+# 16-64,3
+#64-256,4
+# 256--,5
+games2$ratings <- cut(games2$hours_spent,breaks = c(0,1,4,16,64,256,12000), labels = c(0,1,2,3,4,5))
+games2$hours_spent<-NULL
+
+# convert to the realRatingMatrix for the use of recommenderlab
+games2ratings <- as(games2, 'realRatingMatrix')
+
+```
+## Method Popular
+
+I start the process with a simple recommendation model using method 'Popular'. It makes sense because the most popular games are usually prefered by the general people. Unfortunately, the dataset doesn't contain any information about the genres of the games. Otherwise, making a recommendation based on the genre that each user prefers is also a good approach.
+
+```{r}
+
+recc <- NA
+
+trainMyAlgorithm <- function(data) {
+  # We use <<- operator instead <- to save this in the global state
+  recc <<- Recommender(data, method="POPULAR")
+}
+
+applyMyAlgorithm <- function(data) {
+  # Note we use recc inside this function.
+  pre <- predict(recc, data, n = 10)
+  return(as(pre, "list"))
+}
+
+```
+
+
+I take first 6000 users as training set, and use the last 1000 users for test. As shown from the first 5 results on the test set, the most popular games are similar. The games such as the Elder Scrolls V, CS Go, Dota 2, GTA5, L4D2 and Civilization V are all the popular ones. However, with this method, the recommended games all belong to different genre. In reality, the players prefer to play the games in similar genres. So this method is not the best approach.
+
+```{r}
+trainMyAlgorithm(games2ratings[1:6000,])
+
+x <- applyMyAlgorithm(games2ratings[10001:11000,])
+
+x[1:5]
+```
+## Method IBCF
+
+Based on the situation, Collaborative Filtering is a better approach than popularity. Because the players have different tastes on the games. Here we are going to use the User Based Collaborative Filtering. Because in the dataset, we don't have enough information for each game.
+
+```{r}
+recc <- NA
+
+trainUBCF <- function(data) {
+  # We use <<- operator instead <- to save this in the global state
+  recc <<- Recommender(data, method="UBCF",  parameter = list(method = "Cosine"))
+}
+
+
+applyUBCF <- function(data) {
+  # Note we use recc inside this function.
+  pre <- predict(recc, data, n = 10)
+  return(as(pre, "list"))
+}
+
+```
+
+As shown from the result, the games are recommended to the users are more likely to be similar to each others. For example, for the player 233397077, the algorithm recommends Counter-Strike, L4D2, PAYDAY2, Zombie Panic Source, and Ace of Spades are all the shooting games. In my dataset, this player played Counter-Strike. Those games are recommened to this player because the other players, who also played Counter-Strike, played the games such as L4D2 and PAYDAY2.
+
+```{r}
+trainUBCF(games2ratings[1:6000,])
+
+x <- applyUBCF(games2ratings[9001:9200,])
+
+x[1:5]
+```
+
+To take a closer look on a specific user, we choose 234190577 as an example, because this player played quite a few games. As shown from the dataset, he(assume this player is a guy) played CS Go, GTA5, Fallout 4, Minimum, and Apotheon Arena. All the games he played are sort of shooting games, except Apothenon Arena. And as shown from the ratings, he doesn't seem to prefer Apotheon Arena. So the algorithm recommends him COD2, L4D2, Civilization V, Borderlands, etc. Notice that most of the games the algorithm recommended are shooting games except Dota2 and Civilization V. This is happening because those two games are so popular among the players who played similar games as 234190577 did.
+
+```{r}
+games2[userId=='234190577']
+x$`234190577`
+```
+
+On the other hand, let's take a look of the users who only played one game. As shown from the dataset, this user only played Dota 2, and the algorithm recommends him some games in different genres. In this case, User Based Collaborative Filtering is not very strong, because for all the users who only played Dota 2, it recommends the exact same set of the games. So in this case, I think it's better to use a combination of the algorithms to give more diversed recommendations.
+
+```{r}
+games2[userId=='234286554']
+x$`234286554`
+```
+
+
+## Hybrid Recommender
+
+As I mentioned in the previous part, the players tend to play the similar types of the games. For example, the player who played L4D2 and CS Go are more likely to play Plyaer Unknown Battleground. However, for the users only played one game, there are more possiblities. Playing the same game over and over again, the players may get bored of the same genre. This is a great business opportunity for Steam, because it is the chance for us to introduce more different types of the games to the players. After spending several hours on the higly intensive and competitive games, like Dota 2 and CS Go, the players may be a bit tired, and now it's the time to introduce some interesting, story driven, smaller size, and less intensive games. 
+
+In this situation, I choose to use a Hybrid Recommender with two method, User Based Collaborative Filtering and Random recommendation. Again, because we don't have the genre information for each game, we can't make a recommendation based on genre at this moment. Random is a comparatively good approach, because the players have a chance to discover some minority games which are also very precious.
+
+```{r}
+svd <- NA
+
+trainSVD <- function(data) {
+  # We use <<- operator instead <- to save this in the global state
+  svd <<- Recommender(data, method="SVD",  parameter = list(k = 50))
+}
+
+
+applySVD <- function(data) {
+  # Note we use recc inside this function.
+  pre <- predict(svd, data, n = 10)
+  return(as(pre, "list"))
+}
+
+trainSVD(games2ratings[1:6000,])
+x_svd <- applySVD(games2ratings[9001:9200,])
+x_svd[1:5]
+
+```
+
+
+
+```{r}
+trainHybrid <- function(data, randomness=0.3) {
+  recc <<- HybridRecommender(
+    Recommender(data, method="UBCF", parameter = list(method = "Cosine")),
+    Recommender(data, method="RANDOM"),
+    weights = c(1-randomness, randomness))
+}
+
+applyHybrid <- function(data) {
+  # Note we use recc inside this function.
+  pre <- predict(recc, data, n = 10)
+  return(as(pre, "list"))
+}
+
+trainHybrid(games2ratings[1:6000,])
+x <- applyHybrid(games2ratings[9001:9200,])
+```
+
+Notice that in the previous User Based Collaborative Filtering, the recommended games are most likely to be CS Go, L4D2, The Elder Scroll V, GTA V, and Civilization V. This phenomenon happens due to the high popularity, even though we didn't choose "POPULAR" as my algorithm. It was simply because too many people played those games.
+
+As shown from the result, instead of showing the hot games, the recommendations are more mixed in this time. This is gold because it provides more chances to the games are not as popular as the big ones. From the business perspective, we are offering more opportunities to the game developers whom are not big companies.
+
+```{r}
+x[1:5]
+```
+
+## Business Application
+
+How do we apply the recommender system to the business case? Based on the fact that the users are generally either new players or the old players. For the old players, we already have certain amount of the data in my database, so we can apply my Hybrid Algorithm right away. 
+
+However, for the new players, there are two possible situations. If the player registered the account with social media account, we can get the data from his social media account, and apply the Hybrid Algorithm. For example, if the player is following some famous gamers and gaming companies' official accounts, or he posted something relevant to the games, we consider this behavior as preferring the corresponded games, and write it into my database. There are a lot of ways to extract information about the user's preference in game, we are not going to discuss too much in here.
+
+On the other side, We don't really have too much information if the player registered without linking to Facebook or any other social media. After the player is registering a new account, we provide some options of the classic games in graphs, so the player can quickly select the ones he is interested. Notice that we are not going to ask what is the player's favoriate genre of the games. Because, the player's taste can vary in different genres. If we limit the genre in the very beginning, we will have a narrow view of his preference. Moreover, each game is unique, they are attractive to the gamers in different ways. This is also why we never involved genre in my recommendation algorithm.
+
+Once we generate the initial preference for my new users, we can apply my Hybrid Algorithm to them. However, for the new users, we are going to weight more on my "Random" method in the algorithm. By doing this, we provide a higher chance for the players to explore the various games if they don't know what to play. 
+
+In general, if techinically possible, we should also weight on the games while giving recommendations. For example, we recommend 10 games to a player every time. From the perspective of time consuming, 3 out of 10 maybe big games, such as Civilization V. It takes not only long time to install, but also long time to finish one game. 3 out of 10 maybe online games, such as World of Warcraft. It requires a lot of investment on time, and maybe some monetary investment as well. The rest of the recommendations should be fast to download, easy to play, and fast to finish one game. Because, thinking in the perspective of a player who played Civilization V for several days, he may want to try some game fast and interesting.
+
+
+## The Feedback Loop
+
+How do we create a feedback loop? It will depends on the situation we send my recommendations to the players. 
+
+The first situation is when the player logs in to the platform. my recommendation system will send a notification to the player with a batch of the games. In this case, the way we get feedback from the user will be based on whether he downloads the game or not. If he downloads the game, then we add this game as his preference into the database with initialized rating score as 1. As the more time he spent on the game, the game's rating goes up. Once the player uninstalled the game, the game is discarded from the player's preference. 
+
+So you may ask what's the point of keeping the records with rating as 0? The scenario is sometimes we see a game, and we are interested in the game, but we don't actually have the time to play that game. So we keep the records with ratings as 0, because it contains the information as well.
+
+The second situation is create a newspage in the platform. By newspage, this is not necessary limited to the text. It also contains the short clips CGs about the games, as well as the homemade videos from the other players. Because most of the time, a game platform is also a community. It is important to create a way for the players to communicate with each other. So the newspage with the homemade videos is one approach. We are not going to talk too much about the community in here. In the newspage, the players also have the choice of "like"" or "don't like"" the news. In addition, for the news that corresponds to the specific game, we make a record when the player clicks "like". When the player likes three news corresponds to a game, we put this game into the player's preference with ratings as 0. When the user dislike the news corresponds to a game 10 times, we add this game into his "blacklist". Next time, when we are making recommendations, we will automatically filter out the ones in the blacklist. Why? Because normally when people see something they don't like, they will just skip it. When they click on "dislike" 10 times, this means they really hate it. So it's important to also take this as feedback.
+
+The third situation is creat a specialized page for recommending games only. So what a player will see is a page with all the recommended games, 10 or 20 games each time. Remember that we include randomness in my algorithm, so everytime, the algorithm will recommend something different. When the player see the games, he can simply choose "like" or "dislike". When he click on "like", the game will be added to his preference with initialized score of 0. When he click on "dislike", the game will be added to his "blacklist", and will not show again. With this recommendation page, we are able to generate more data from the players. Because remember from the dataset we have, we simply judge the players' preference by the amount of time they spent on each game. This is not necessary true in real world. Because, my users are from different social groups, and the amount of free time they have are different.
+
+## A Simple Implementation
+
+So how do we make the most out of the recommendation system? Apparently, the more games we sell to the players, the more revenue we are able to make. I don't know if any gaming platform has already come up with this strategy, but this is origanlly from my own thought combined with my experience. 
+
+When a player finished a game and backed to the platform, we calculate how much time has he spent on this game from the moment he launched the game. If it's above our threshold, we give the players promotion on the games recommended by our recommendation system. In this scenario, we may give 5 recommendations, but the player can only choose one game. When he has made the choice, the platform will start download the game so that the player can enjoy the game next time he logs in. Because usually when the player quits a game, he will move on to something else such as gym, grocery shopping, watching TV, etc. So here is the chance for the platform to introduce the game. If the game is not free, then the player will not be charged until he launchs the game next time.
+
+The crucial part is the threshold. The threshold should be decided based on not only the other players who played the same game, but also be based on this player's average hours spending on the games. If the duration of this game is too short, we ask him right away if he likes the game or not. When the player says "dislike", we process it as we talked about in the feedback loop, and go to the promotion part. If he says "like", we apply the promotion part we just described. 
+
+## Conclusion
+
+In a general view, my recommendation algorithm is a hybrid of random and user based collaborative filtering. However, in different situations and different types of users, we apply different recommendation strategies to my users. In the very beginning, we generates the players' preference, in a scale from 0 to 5, based on the amount of time they spent on each game. During the implementation of the recommendation system, we study the players' behavior, and extract their preferences from their behaviors. my recommendation system is able to continuously learn from the users' behavior, and give dynamical recommendations to the users. On top of my recommendation system, we are able to apply different marketing strategies to sell games, give promotions to the players, and even create a community for the gamers.
+
+
+
+
+
+
+
+
+
+
